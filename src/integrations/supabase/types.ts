@@ -234,7 +234,7 @@ export type Database = {
           password: string
           permissions: Json
           phone: string | null
-          role: string
+          role: Database["public"]["Enums"]["employee_role"]
           updated_at: string
         }
         Insert: {
@@ -252,7 +252,7 @@ export type Database = {
           password: string
           permissions?: Json
           phone?: string | null
-          role: string
+          role?: Database["public"]["Enums"]["employee_role"]
           updated_at?: string
         }
         Update: {
@@ -270,7 +270,7 @@ export type Database = {
           password?: string
           permissions?: Json
           phone?: string | null
-          role?: string
+          role?: Database["public"]["Enums"]["employee_role"]
           updated_at?: string
         }
         Relationships: [
@@ -393,7 +393,7 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      employee_role: "admin" | "manager" | "teller" | "customer_service"
     }
     CompositeTypes: {
       [_ in never]: never

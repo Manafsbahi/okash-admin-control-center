@@ -5,17 +5,29 @@ import { supabase } from "@/integrations/supabase/client";
 import { Session, User } from "@supabase/supabase-js";
 import { Database } from "@/integrations/supabase/types";
 
+// Define the employee role enum to match the database
+export enum EmployeeRole {
+  ADMIN = 'admin',
+  MANAGER = 'manager',
+  TELLER = 'teller',
+  CUSTOMER_SERVICE = 'customer_service'
+}
+
 // Define our Employee type
 export type Employee = {
   id: string;
   email: string;
   name: string;
-  role: string;
+  role: EmployeeRole;
   permissions: {
     can_create_customer?: boolean;
     can_update_customer?: boolean;
     can_freeze_account?: boolean;
     can_view_all_transactions?: boolean;
+    can_close_account?: boolean;
+    can_edit_customer?: boolean;
+    can_manage_employees?: boolean;
+    can_update_exchange_rates?: boolean;
     [key: string]: boolean | undefined;
   };
   branch_id?: string;
@@ -102,11 +114,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         // Normalize the permissions object
         // FIX: Use type assertion to ensure TypeScript knows these are object types
         const basePermissions = (data.permissions as Record<string, boolean>) || {};
-        const adminPermissions = data.role === 'admin' ? {
+        const adminPermissions = data.role === EmployeeRole.ADMIN ? {
           can_create_customer: true,
           can_update_customer: true,
           can_freeze_account: true,
-          can_view_all_transactions: true
+          can_view_all_transactions: true,
+          can_close_account: true,
+          can_edit_customer: true
         } : {};
         
         const normalizedPermissions = {
@@ -116,6 +130,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         
         setEmployee({
           ...data,
+          role: data.role as EmployeeRole,  // Ensure role is cast to our enum
           permissions: normalizedPermissions
         });
       }
@@ -158,8 +173,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         }
         
         // If email exists but auth failed, the employee exists but might not be registered in auth system
-        // Let's try a development-only fallback to simulate authentication
-        
         // WARNING: This is for development only and should be removed in production!
         // In production, you would properly register all employees in the auth system
         if (empData && empData.password === password) {
@@ -168,11 +181,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           // Normalize the permissions object for admin users
           // FIX: Use type assertion to ensure TypeScript knows these are object types
           const basePermissions = (empData.permissions as Record<string, boolean>) || {};
-          const adminPermissions = empData.role === 'admin' ? {
+          const adminPermissions = empData.role === EmployeeRole.ADMIN ? {
             can_create_customer: true,
             can_update_customer: true,
             can_freeze_account: true,
-            can_view_all_transactions: true
+            can_view_all_transactions: true,
+            can_close_account: true,
+            can_edit_customer: true
           } : {};
           
           const normalizedPermissions = {
@@ -184,7 +199,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             id: empData.id,
             email: empData.email,
             name: empData.name,
-            role: empData.role,
+            role: empData.role as EmployeeRole,  // Ensure role is cast to our enum
             permissions: normalizedPermissions,
             branch_id: empData.branch_id,
             employee_id: empData.employee_id
