@@ -99,8 +99,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (data) {
         console.log("Fetched employee data:", data);
         
-        // Normalize the permissions object - FIX: Ensure data.permissions is an object before spreading
-        const basePermissions = data.permissions || {};
+        // Normalize the permissions object
+        // FIX: Use type assertion to ensure TypeScript knows these are object types
+        const basePermissions = (data.permissions as Record<string, boolean>) || {};
         const adminPermissions = data.role === 'admin' ? {
           can_create_customer: true,
           can_update_customer: true,
@@ -164,8 +165,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         if (empData && empData.password === password) {
           console.log("Using dev fallback auth...");
           
-          // Normalize the permissions object for admin users - FIX: Ensure empData.permissions is an object before spreading
-          const basePermissions = empData.permissions || {};
+          // Normalize the permissions object for admin users
+          // FIX: Use type assertion to ensure TypeScript knows these are object types
+          const basePermissions = (empData.permissions as Record<string, boolean>) || {};
           const adminPermissions = empData.role === 'admin' ? {
             can_create_customer: true,
             can_update_customer: true,
