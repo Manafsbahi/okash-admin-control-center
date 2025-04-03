@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -41,6 +41,8 @@ const NewCustomer = () => {
   const navigate = useNavigate();
   const { employee } = useAuth();
   const [accountType, setAccountType] = React.useState<"personal" | "business">("personal");
+  const [loading, setLoading] = useState(false);
+  const [permissionError, setPermissionError] = useState<string | null>(null);
 
   const personalForm = useForm<z.infer<typeof personalAccountSchema>>({
     resolver: zodResolver(personalAccountSchema),
@@ -65,16 +67,37 @@ const NewCustomer = () => {
     },
   });
 
-  // Check if employee can create customers
-  if (employee?.role !== 'admin' && !employee?.permissions?.can_create_customer) {
-    React.useEffect(() => {
+  useEffect(() => {
+    console.log("Current employee data:", employee);
+    
+    if (!employee) {
+      setPermissionError("Employee data not loaded. Please try refreshing the page.");
+      return;
+    }
+    
+    const hasPermission = 
+      employee.role === 'admin' || 
+      (employee.permissions && employee.permissions.can_create_customer === true);
+    
+    if (!hasPermission) {
+      console.log("Permission denied. Role:", employee.role, "Permissions:", employee.permissions);
+      setPermissionError("You don't have permission to create new customers");
       toast.error("You don't have permission to create new customers");
-      navigate('/customers');
-    }, [navigate]);
-    return null;
+      setTimeout(() => navigate('/customers'), 3000);
+    }
+  }, [employee, navigate]);
+
+  if (permissionError) {
+    return (
+      <div className="flex flex-col items-center justify-center p-8 text-center">
+        <div className="text-red-500 mb-4">{permissionError}</div>
+        <Button variant="outline" onClick={() => navigate('/customers')}>
+          Return to Customers
+        </Button>
+      </div>
+    );
   }
 
-  // Generate account number
   const generateAccountNumber = (type: "personal" | "business") => {
     const prefix = type === "personal" ? "12" : "13";
     const randomDigits = Math.floor(10000000 + Math.random() * 90000000);
@@ -83,7 +106,13 @@ const NewCustomer = () => {
 
   const onPersonalSubmit = async (values: z.infer<typeof personalAccountSchema>) => {
     try {
+      setLoading(true);
       const accountNumber = generateAccountNumber("personal");
+      
+      if (!employee || !employee.id) {
+        toast.error("Employee information not available");
+        return;
+      }
       
       const { error } = await supabase.from('customers').insert({
         name: values.name,
@@ -101,7 +130,7 @@ const NewCustomer = () => {
         account_type: "personal",
         status: 'active',
         balance: 0,
-        created_by: employee?.id
+        created_by: employee.id
       });
       
       if (error) throw error;
@@ -111,12 +140,20 @@ const NewCustomer = () => {
     } catch (error) {
       console.error("Error creating customer:", error);
       toast.error("Failed to create account");
+    } finally {
+      setLoading(false);
     }
   };
 
   const onBusinessSubmit = async (values: z.infer<typeof businessAccountSchema>) => {
     try {
+      setLoading(true);
       const accountNumber = generateAccountNumber("business");
+      
+      if (!employee || !employee.id) {
+        toast.error("Employee information not available");
+        return;
+      }
       
       const { error } = await supabase.from('customers').insert({
         name: values.name,
@@ -137,7 +174,7 @@ const NewCustomer = () => {
         account_type: "business",
         status: 'active',
         balance: 0,
-        created_by: employee?.id
+        created_by: employee.id
       });
       
       if (error) throw error;
@@ -147,6 +184,8 @@ const NewCustomer = () => {
     } catch (error) {
       console.error("Error creating customer:", error);
       toast.error("Failed to create account");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -359,7 +398,9 @@ const NewCustomer = () => {
                   </div>
                 </CardContent>
                 <CardFooter>
-                  <Button type="submit" className="ml-auto">Create Personal Account</Button>
+                  <Button type="submit" className="ml-auto" disabled={loading}>
+                    {loading ? "Creating..." : "Create Personal Account"}
+                  </Button>
                 </CardFooter>
               </form>
             </Form>
@@ -570,7 +611,9 @@ const NewCustomer = () => {
                   </div>
                 </CardContent>
                 <CardFooter>
-                  <Button type="submit" className="ml-auto">Create Business Account</Button>
+                  <Button type="submit" className="ml-auto" disabled={loading}>
+                    {loading ? "Creating..." : "Create Business Account"}
+                  </Button>
                 </CardFooter>
               </form>
             </Form>

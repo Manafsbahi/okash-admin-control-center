@@ -11,7 +11,13 @@ export type Employee = {
   email: string;
   name: string;
   role: string;
-  permissions: any;
+  permissions: {
+    can_create_customer?: boolean;
+    can_update_customer?: boolean;
+    can_freeze_account?: boolean;
+    can_view_all_transactions?: boolean;
+    [key: string]: boolean | undefined;
+  };
   branch_id?: string;
   employee_id: string;
 };
@@ -24,6 +30,7 @@ type AuthContextType = {
   logout: () => void;
   loading: boolean;
   session: Session | null;
+  refreshEmployeeData: () => Promise<void>;
 };
 
 // Create the context
@@ -90,10 +97,34 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
 
       if (data) {
-        setEmployee(data);
+        console.log("Fetched employee data:", data);
+        
+        // Normalize the permissions object
+        const normalizedPermissions = {
+          ...(data.permissions || {}),
+          // Make sure admin users always have basic permissions
+          ...(data.role === 'admin' ? {
+            can_create_customer: true,
+            can_update_customer: true,
+            can_freeze_account: true,
+            can_view_all_transactions: true
+          } : {})
+        };
+        
+        setEmployee({
+          ...data,
+          permissions: normalizedPermissions
+        });
       }
     } catch (error) {
       console.error('Failed to fetch employee data', error);
+    }
+  };
+  
+  // Function to manually refresh employee data
+  const refreshEmployeeData = async () => {
+    if (session?.user) {
+      await fetchEmployeeData(session.user);
     }
   };
 
@@ -130,17 +161,33 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         // In production, you would properly register all employees in the auth system
         if (empData && empData.password === password) {
           console.log("Using dev fallback auth...");
+          
+          // Normalize the permissions object for admin users
+          const normalizedPermissions = {
+            ...(empData.permissions || {}),
+            // Make sure admin users always have basic permissions
+            ...(empData.role === 'admin' ? {
+              can_create_customer: true,
+              can_update_customer: true,
+              can_freeze_account: true,
+              can_view_all_transactions: true
+            } : {})
+          };
+          
           setEmployee({
             id: empData.id,
             email: empData.email,
             name: empData.name,
             role: empData.role,
-            permissions: empData.permissions,
+            permissions: normalizedPermissions,
             branch_id: empData.branch_id,
             employee_id: empData.employee_id
           });
           setIsAuthenticated(true);
-          localStorage.setItem("okash-employee", JSON.stringify(empData));
+          localStorage.setItem("okash-employee", JSON.stringify({
+            ...empData,
+            permissions: normalizedPermissions
+          }));
           
           toast.success("Login successful");
           return true;
@@ -184,7 +231,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, employee, login, logout, loading, session }}>
+    <AuthContext.Provider value={{ 
+      isAuthenticated, 
+      employee, 
+      login, 
+      logout, 
+      loading, 
+      session,
+      refreshEmployeeData 
+    }}>
       {children}
     </AuthContext.Provider>
   );
