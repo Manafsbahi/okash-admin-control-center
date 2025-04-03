@@ -18,9 +18,6 @@ export const supabase = createClient<Database>(
       autoRefreshToken: true,
       detectSessionInUrl: true,
       storage: localStorage
-    },
-    db: {
-      schema: 'api'
     }
   }
 );

@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -140,23 +139,23 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
         updateBalancePromises.push(
           supabase
             .from('customers')
-            .update({ balance: balance - values.amount })
-            .eq('id', customerId)
+            .update({ balance: balance - values.amount } as any)
+            .eq('id', customerId as any)
         );
       } else if (transactionType === 'deposit') {
         updateBalancePromises.push(
           supabase
             .from('customers')
-            .update({ balance: balance + values.amount })
-            .eq('id', customerId)
+            .update({ balance: balance + values.amount } as any)
+            .eq('id', customerId as any)
         );
       } else if (transactionType === 'transfer') {
         // Deduct from source account
         updateBalancePromises.push(
           supabase
             .from('customers')
-            .update({ balance: balance - values.amount })
-            .eq('id', customerId)
+            .update({ balance: balance - values.amount } as any)
+            .eq('id', customerId as any)
         );
 
         // Add to destination account if internal
@@ -164,15 +163,15 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
           const { data: recipient } = await supabase
             .from('customers')
             .select('balance')
-            .eq('id', recipientId)
+            .eq('id', recipientId as any)
             .single();
 
           if (recipient) {
             updateBalancePromises.push(
               supabase
                 .from('customers')
-                .update({ balance: recipient.balance + values.amount })
-                .eq('id', recipientId)
+                .update({ balance: (recipient.balance as number) + values.amount } as any)
+                .eq('id', recipientId as any)
             );
           }
         }

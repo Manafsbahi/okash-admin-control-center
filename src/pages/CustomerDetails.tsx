@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/components/ui/card";
@@ -11,8 +10,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ArrowLeft, Ban, Edit, Printer, Send, Trash, UserMinus, Wallet } from "lucide-react";
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@/components/ui/table";
 import { toast } from "sonner";
+import { asId, asUpdatePayload } from "@/utils/supabaseHelpers";
 
-// Types for our component
 interface CustomerTransaction {
   id: string;
   created_at: string;
@@ -28,14 +27,13 @@ const CustomerDetails = () => {
   const { employee } = useAuth();
   const [activeTab, setActiveTab] = useState("details");
 
-  // Fetch customer details
   const { data: customer, isLoading: customerLoading, error: customerError } = useQuery({
     queryKey: ['customer', id],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('customers')
         .select('*')
-        .eq('id', id)
+        .eq('id', asId(id as string))
         .single();
 
       if (error) {
@@ -47,7 +45,6 @@ const CustomerDetails = () => {
     }
   });
 
-  // Fetch customer transactions
   const { data: transactions = [], isLoading: transactionsLoading } = useQuery({
     queryKey: ['customer-transactions', id],
     queryFn: async () => {
@@ -68,13 +65,13 @@ const CustomerDetails = () => {
   });
 
   const handleFreezeAccount = async () => {
-    if (!customer) return;
+    if (!customer || !id) return;
     
     try {
       const { error } = await supabase
         .from('customers')
-        .update({ status: 'frozen' })
-        .eq('id', id);
+        .update(asUpdatePayload({ status: 'frozen' }))
+        .eq('id', asId(id));
       
       if (error) throw error;
       toast.success("Account has been frozen");
@@ -85,7 +82,7 @@ const CustomerDetails = () => {
   };
 
   const handleCloseAccount = async () => {
-    if (!customer) return;
+    if (!customer || !id) return;
     
     if (customer.balance !== 0) {
       return toast.error("Cannot close account with non-zero balance");
@@ -94,8 +91,8 @@ const CustomerDetails = () => {
     try {
       const { error } = await supabase
         .from('customers')
-        .update({ status: 'closed' })
-        .eq('id', id);
+        .update(asUpdatePayload({ status: 'closed' }))
+        .eq('id', asId(id));
       
       if (error) throw error;
       toast.success("Account has been closed");
@@ -106,8 +103,7 @@ const CustomerDetails = () => {
     }
   };
 
-  // Format the date
-  const formatDate = (dateString) => {
+  const formatDate = (dateString: any) => {
     if (!dateString) return "N/A";
     const date = new Date(dateString);
     return date.toLocaleDateString();
@@ -150,7 +146,6 @@ const CustomerDetails = () => {
           <TabsTrigger value="actions">Account Actions</TabsTrigger>
         </TabsList>
 
-        {/* Customer Details Tab */}
         <TabsContent value="details">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <Card>
@@ -267,7 +262,6 @@ const CustomerDetails = () => {
           </div>
         </TabsContent>
 
-        {/* Transactions Tab */}
         <TabsContent value="transactions">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
@@ -317,7 +311,6 @@ const CustomerDetails = () => {
           </Card>
         </TabsContent>
 
-        {/* Account Actions Tab */}
         <TabsContent value="actions">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <Card>

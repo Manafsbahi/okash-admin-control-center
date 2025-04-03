@@ -4,6 +4,7 @@ import { useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import TransactionForm from '@/components/TransactionForm';
+import { asId } from '@/utils/supabaseHelpers';
 
 const CustomerWithdraw = () => {
   const { id } = useParams<{ id: string }>();
@@ -16,7 +17,7 @@ const CustomerWithdraw = () => {
       const { data, error } = await supabase
         .from('customers')
         .select('id, name, balance')
-        .eq('id', id)
+        .eq('id', asId(id))
         .maybeSingle(); // Using maybeSingle instead of single to avoid errors
 
       if (error) {
