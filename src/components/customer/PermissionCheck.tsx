@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
+import { toast } from "sonner";
 
 interface PermissionCheckProps {
   permissionError: string | null;
@@ -18,6 +19,11 @@ const PermissionCheck: React.FC<PermissionCheckProps> = ({
 
   if (!permissionError) return null;
 
+  const handleReturn = () => {
+    toast.info(`Redirecting to ${returnPath === '/customers' ? 'Customers' : returnPath === '/dashboard' ? 'Dashboard' : 'previous page'}`);
+    navigate(returnPath);
+  };
+
   return (
     <div className="flex flex-col items-center justify-center p-8 text-center">
       <Alert variant="destructive" className="max-w-md mb-4">
@@ -26,7 +32,7 @@ const PermissionCheck: React.FC<PermissionCheckProps> = ({
         <AlertDescription>{permissionError}</AlertDescription>
       </Alert>
       
-      <Button variant="default" onClick={() => navigate(returnPath)}>
+      <Button variant="default" onClick={handleReturn}>
         Return to {returnPath === '/customers' ? 'Customers' : returnPath === '/dashboard' ? 'Dashboard' : 'Previous Page'}
       </Button>
     </div>

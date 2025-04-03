@@ -36,13 +36,14 @@ const Customers = () => {
   const fetchCustomers = async () => {
     console.log("Fetching customers...");
     try {
+      // Ensure we're using the public schema
       const { data, error } = await supabase
         .from('customers')
         .select('id, name, account_type, balance, status, created_at, account_number');
 
       if (error) {
         console.error("Error fetching customers:", error);
-        throw error;
+        throw new Error(`Failed to fetch customers: ${error.message}`);
       }
 
       console.log("Customers fetched:", data?.length || 0);
@@ -62,7 +63,9 @@ const Customers = () => {
     queryKey: ['customers'],
     queryFn: fetchCustomers,
     retry: 1,
-    refetchOnWindowFocus: false
+    refetchOnWindowFocus: false,
+    staleTime: 30000, // 30 seconds
+    gcTime: 300000, // 5 minutes
   });
 
   // Filter customers based on search query
