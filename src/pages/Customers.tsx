@@ -18,6 +18,7 @@ import {
   TableRow, 
   TableCell 
 } from "@/components/ui/table";
+import { EmployeeRole } from "@/contexts/AuthContext";
 
 const Customers = () => {
   const { t, isRTL } = useLanguage();
@@ -28,21 +29,30 @@ const Customers = () => {
   const { employee } = useAuth();
 
   const fetchCustomers = async () => {
-    const { data, error } = await supabase
-      .from('customers')
-      .select('id, name, account_type, balance, status, created_at, account_number');
+    console.log("Fetching customers...");
+    try {
+      const { data, error } = await supabase
+        .from('customers')
+        .select('id, name, account_type, balance, status, created_at, account_number');
 
-    if (error) {
-      console.error("Error fetching customers:", error);
+      if (error) {
+        console.error("Error fetching customers:", error);
+        throw error;
+      }
+
+      console.log("Customers fetched:", data?.length || 0);
+      return data || [];
+    } catch (error) {
+      console.error("Failed to fetch customers:", error);
       throw error;
     }
-
-    return data || [];
   };
 
   const { data: customers = [], isLoading, error } = useQuery({
     queryKey: ['customers'],
-    queryFn: fetchCustomers
+    queryFn: fetchCustomers,
+    retry: 1,
+    refetchOnWindowFocus: false
   });
 
   // Filter customers based on search query
@@ -78,12 +88,20 @@ const Customers = () => {
 
   const handleNewCustomer = () => {
     // Check if employee has permission to create customers
-    if (employee?.role === 'admin' || employee?.permissions?.can_create_customer) {
+    if (employee?.role === EmployeeRole.ADMIN || 
+        employee?.role === EmployeeRole.MANAGER ||
+        employee?.permissions?.can_create_customer) {
       navigate('/customers/new');
     } else {
+      console.log("Permission denied. Role:", employee?.role, "Permissions:", employee?.permissions);
       toast.error("You don't have permission to create new customers");
     }
   };
+
+  // For debugging - log employee data
+  React.useEffect(() => {
+    console.log("Current employee data:", employee);
+  }, [employee]);
 
   return (
     <div>
@@ -123,6 +141,7 @@ const Customers = () => {
           ) : error ? (
             <div className="text-center py-8 text-red-500">
               Error loading customers. Please try again later.
+              {error instanceof Error && <div className="mt-2 text-sm">{error.message}</div>}
             </div>
           ) : sortedCustomers.length > 0 ? (
             <div className="overflow-x-auto">

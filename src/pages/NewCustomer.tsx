@@ -14,6 +14,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { supabase } from "@/integrations/supabase/client";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { EmployeeRole } from "@/contexts/AuthContext";
 
 const personalAccountSchema = z.object({
   name: z.string().min(3, { message: "Name must be at least 3 characters" }),
@@ -39,7 +40,7 @@ const businessAccountSchema = personalAccountSchema.extend({
 
 const NewCustomer = () => {
   const navigate = useNavigate();
-  const { employee } = useAuth();
+  const { employee, refreshEmployeeData } = useAuth();
   const [accountType, setAccountType] = React.useState<"personal" | "business">("personal");
   const [loading, setLoading] = useState(false);
   const [permissionError, setPermissionError] = useState<string | null>(null);
@@ -68,7 +69,18 @@ const NewCustomer = () => {
   });
 
   useEffect(() => {
+    console.log("Checking customer creation permissions...");
     console.log("Current employee data:", employee);
+    
+    const updateEmployeeData = async () => {
+      try {
+        await refreshEmployeeData();
+      } catch (error) {
+        console.error("Failed to refresh employee data:", error);
+      }
+    };
+    
+    updateEmployeeData();
     
     if (!employee) {
       setPermissionError("Employee data not loaded. Please try refreshing the page.");
@@ -76,7 +88,8 @@ const NewCustomer = () => {
     }
     
     const hasPermission = 
-      employee.role === 'admin' || 
+      employee.role === EmployeeRole.ADMIN || 
+      employee.role === EmployeeRole.MANAGER ||
       (employee.permissions && employee.permissions.can_create_customer === true);
     
     if (!hasPermission) {
@@ -85,7 +98,7 @@ const NewCustomer = () => {
       toast.error("You don't have permission to create new customers");
       setTimeout(() => navigate('/customers'), 3000);
     }
-  }, [employee, navigate]);
+  }, [employee, navigate, refreshEmployeeData]);
 
   if (permissionError) {
     return (
