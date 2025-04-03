@@ -1,4 +1,3 @@
-
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/components/ui/card";
@@ -89,6 +88,7 @@ const NewCustomer = () => {
       const { error } = await supabase.from('customers').insert({
         ...values,
         account_number: accountNumber,
+        account_type: "personal",
         status: 'active',
         balance: 0,
         created_by: employee?.id
@@ -111,6 +111,7 @@ const NewCustomer = () => {
       const { error } = await supabase.from('customers').insert({
         ...values,
         account_number: accountNumber,
+        account_type: "business",
         status: 'active',
         balance: 0,
         created_by: employee?.id

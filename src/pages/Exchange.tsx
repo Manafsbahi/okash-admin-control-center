@@ -1,48 +1,33 @@
 
-import React, { useState } from "react";
-import { useAuth } from "@/contexts/AuthContext";
-import { useLanguage } from "@/contexts/LanguageContext";
+import React, { useState, useEffect } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useAuth } from "@/contexts/AuthContext";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { PlusCircle, RefreshCw, Edit } from "lucide-react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
 import { toast } from "sonner";
-
-// Form schema for creating/editing exchange rates
-const exchangeRateSchema = z.object({
-  currency_code: z.string().min(3, { message: "Currency code must be at least 3 characters" }),
-  currency_name: z.string().min(2, { message: "Currency name is required" }),
-  rate_to_syp: z.coerce.number().positive({ message: "Rate must be a positive number" }),
-});
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableHead,
+  TableRow,
+  TableCell
+} from "@/components/ui/table";
+import { Pencil, Check, X } from "lucide-react";
 
 const Exchange = () => {
-  const { t, isRTL } = useLanguage();
   const { employee } = useAuth();
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingRate, setEditingRate] = useState<any>(null);
-  const [calculatorAmount, setCalculatorAmount] = useState<number | "">("");
-  const [selectedCurrency, setSelectedCurrency] = useState<string | null>(null);
-
-  const form = useForm<z.infer<typeof exchangeRateSchema>>({
-    resolver: zodResolver(exchangeRateSchema),
-    defaultValues: {
-      currency_code: "",
-      currency_name: "",
-      rate_to_syp: 0,
-    },
+  const [editingRate, setEditingRate] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState<number>(0);
+  const [newCurrency, setNewCurrency] = useState({
+    currency_code: "",
+    currency_name: "",
+    rate_to_syp: 0
   });
 
-  // Check if employee can manage exchange rates
-  const canManageRates = employee?.role === 'admin' || employee?.permissions?.can_manage_rates;
-
-  // Fetch exchange rates
   const { data: rates = [], isLoading, refetch } = useQuery({
     queryKey: ['exchange_rates'],
     queryFn: async () => {
@@ -50,276 +35,213 @@ const Exchange = () => {
         .from('exchange_rates')
         .select('*')
         .order('currency_code');
-      
-      if (error) throw error;
+
+      if (error) {
+        console.error("Error fetching exchange rates:", error);
+        throw error;
+      }
+
       return data || [];
     }
   });
 
-  const handleEditRate = (rate: any) => {
-    setEditingRate(rate);
-    form.reset({
-      currency_code: rate.currency_code,
-      currency_name: rate.currency_name,
-      rate_to_syp: rate.rate_to_syp,
-    });
-    setIsDialogOpen(true);
+  const hasEditPermission = 
+    employee?.role === 'admin' || 
+    employee?.permissions?.can_edit_exchange_rates;
+
+  const startEditing = (rateId: string, currentRate: number) => {
+    if (!hasEditPermission) {
+      toast.error("You don't have permission to edit exchange rates");
+      return;
+    }
+    setEditingRate(rateId);
+    setEditValue(currentRate);
   };
 
-  const handleAddNew = () => {
+  const cancelEditing = () => {
     setEditingRate(null);
-    form.reset({
-      currency_code: "",
-      currency_name: "",
-      rate_to_syp: 0,
-    });
-    setIsDialogOpen(true);
+    setEditValue(0);
   };
 
-  const handleDialogClose = () => {
-    setIsDialogOpen(false);
-    setEditingRate(null);
-    form.reset();
-  };
+  const saveRate = async (rateId: string) => {
+    if (!hasEditPermission) return;
 
-  const onSubmit = async (values: z.infer<typeof exchangeRateSchema>) => {
-    if (!employee) return;
-    
     try {
-      if (editingRate) {
-        // Update existing rate
-        const { error } = await supabase
-          .from('exchange_rates')
-          .update({
-            ...values,
-            last_updated_by: employee.id,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', editingRate.id);
-        
-        if (error) throw error;
-        toast.success(`Updated ${values.currency_name} exchange rate`);
-      } else {
-        // Add new rate
-        const { error } = await supabase
-          .from('exchange_rates')
-          .insert({
-            ...values,
-            last_updated_by: employee.id,
-          });
-        
-        if (error) throw error;
-        toast.success(`Added ${values.currency_name} exchange rate`);
-      }
-      
-      handleDialogClose();
+      const { error } = await supabase
+        .from('exchange_rates')
+        .update({ 
+          rate_to_syp: editValue,
+          last_updated_by: employee?.id
+        })
+        .eq('id', rateId);
+
+      if (error) throw error;
+
+      toast.success("Exchange rate updated successfully");
       refetch();
+      cancelEditing();
     } catch (error) {
-      console.error('Error saving exchange rate:', error);
-      toast.error("Failed to save exchange rate");
+      console.error("Error updating exchange rate:", error);
+      toast.error("Failed to update exchange rate");
     }
   };
 
-  // Calculate conversion
-  const calculateConversion = (amount: number, selectedCode: string | null) => {
-    if (!selectedCode || !amount) return null;
-    
-    const selectedRate = rates.find(rate => rate.currency_code === selectedCode);
-    if (!selectedRate) return null;
-    
-    return amount * selectedRate.rate_to_syp;
+  const addNewCurrency = async () => {
+    if (!hasEditPermission) {
+      toast.error("You don't have permission to add currencies");
+      return;
+    }
+
+    if (!newCurrency.currency_code || !newCurrency.currency_name || !newCurrency.rate_to_syp) {
+      toast.error("Please fill in all currency details");
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('exchange_rates')
+        .insert({ 
+          currency_code: newCurrency.currency_code,
+          currency_name: newCurrency.currency_name,
+          rate_to_syp: newCurrency.rate_to_syp,
+          last_updated_by: employee?.id
+        });
+
+      if (error) throw error;
+
+      toast.success("New currency added successfully");
+      refetch();
+      setNewCurrency({
+        currency_code: "",
+        currency_name: "",
+        rate_to_syp: 0
+      });
+    } catch (error) {
+      console.error("Error adding new currency:", error);
+      toast.error("Failed to add new currency");
+    }
   };
 
-  const convertedAmount = typeof calculatorAmount === 'number' && selectedCurrency
-    ? calculateConversion(calculatorAmount, selectedCurrency)
-    : null;
+  if (isLoading) {
+    return <div className="text-center py-8">Loading exchange rates...</div>;
+  }
 
   return (
     <div>
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Exchange Rate Market</h1>
-        
-        {canManageRates && (
-          <div className="flex gap-2">
-            <Button 
-              variant="outline" 
-              onClick={() => refetch()}
-              className="flex items-center gap-1"
-            >
-              <RefreshCw className="h-4 w-4" /> Refresh
-            </Button>
-            <Button onClick={handleAddNew}>
-              <PlusCircle className="mr-2 h-4 w-4" /> Add New Currency
-            </Button>
-          </div>
-        )}
-      </div>
+      <h1 className="text-2xl font-bold mb-6">Exchange Rates</h1>
 
-      <div className="grid md:grid-cols-2 gap-6">
-        {/* Exchange Rates Table */}
-        <Card className="md:col-span-1">
-          <CardHeader>
-            <CardTitle>Current Exchange Rates</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <div className="text-center py-8">Loading exchange rates...</div>
-            ) : rates.length > 0 ? (
-              <div className="overflow-x-auto">
-                <table className="w-full border-collapse">
-                  <thead>
-                    <tr className="border-b">
-                      <th className="py-2 px-4 text-left">Currency</th>
-                      <th className="py-2 px-4 text-right">1 Unit = SYP</th>
-                      {canManageRates && <th className="py-2 px-4 text-center">Actions</th>}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {rates.map((rate) => (
-                      <tr key={rate.id} className="border-b hover:bg-muted/50">
-                        <td className="py-3 px-4">
-                          <div className="font-medium">{rate.currency_code}</div>
-                          <div className="text-sm text-muted-foreground">{rate.currency_name}</div>
-                        </td>
-                        <td className="py-3 px-4 text-right font-mono">
-                          {rate.rate_to_syp.toLocaleString()} SYP
-                        </td>
-                        {canManageRates && (
-                          <td className="py-3 px-4 text-center">
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle>Current Exchange Rates (1 Currency = X SYP)</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Currency Code</TableHead>
+                  <TableHead>Currency Name</TableHead>
+                  <TableHead className="text-right">Rate to SYP</TableHead>
+                  {hasEditPermission && <TableHead>Actions</TableHead>}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {rates.map((rate) => (
+                  <TableRow key={rate.id}>
+                    <TableCell>{rate.currency_code}</TableCell>
+                    <TableCell>{rate.currency_name}</TableCell>
+                    <TableCell className="text-right">
+                      {editingRate === rate.id ? (
+                        <Input 
+                          type="number"
+                          value={editValue}
+                          onChange={(e) => setEditValue(Number(e.target.value))}
+                          className="w-32 inline-block"
+                        />
+                      ) : (
+                        rate.rate_to_syp.toLocaleString()
+                      )}
+                    </TableCell>
+                    {hasEditPermission && (
+                      <TableCell>
+                        {editingRate === rate.id ? (
+                          <div className="flex space-x-2">
                             <Button 
-                              variant="ghost" 
                               size="sm" 
-                              onClick={() => handleEditRate(rate)}
+                              variant="outline" 
+                              onClick={() => saveRate(rate.id)}
                             >
-                              <Edit className="h-4 w-4" />
+                              <Check className="h-4 w-4" />
                             </Button>
-                          </td>
+                            <Button 
+                              size="sm" 
+                              variant="outline" 
+                              onClick={cancelEditing}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <Button 
+                            size="sm" 
+                            variant="outline" 
+                            onClick={() => startEditing(rate.id, rate.rate_to_syp)}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
                         )}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <div className="text-center py-8 text-gray-500">
-                No exchange rates available
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                      </TableCell>
+                    )}
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
 
-        {/* Currency Calculator */}
-        <Card className="md:col-span-1">
+      {hasEditPermission && (
+        <Card>
           <CardHeader>
-            <CardTitle>Currency Converter</CardTitle>
+            <CardTitle>Add New Currency</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              <div className="flex flex-col gap-2">
-                <label className="text-sm font-medium">Amount</label>
-                <Input
-                  type="number"
-                  value={calculatorAmount}
-                  onChange={(e) => setCalculatorAmount(e.target.value ? parseFloat(e.target.value) : "")}
-                  placeholder="Enter amount"
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div>
+                <Label htmlFor="currency_code">Currency Code</Label>
+                <Input 
+                  id="currency_code"
+                  placeholder="USD" 
+                  value={newCurrency.currency_code}
+                  onChange={(e) => setNewCurrency({...newCurrency, currency_code: e.target.value})}
                 />
               </div>
-
-              <div className="flex flex-col gap-2">
-                <label className="text-sm font-medium">Currency</label>
-                <select
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                  value={selectedCurrency || ""}
-                  onChange={(e) => setSelectedCurrency(e.target.value || null)}
-                >
-                  <option value="">Select currency</option>
-                  {rates.map((rate) => (
-                    <option key={rate.id} value={rate.currency_code}>
-                      {rate.currency_code} - {rate.currency_name}
-                    </option>
-                  ))}
-                </select>
+              <div>
+                <Label htmlFor="currency_name">Currency Name</Label>
+                <Input 
+                  id="currency_name"
+                  placeholder="US Dollar" 
+                  value={newCurrency.currency_name}
+                  onChange={(e) => setNewCurrency({...newCurrency, currency_name: e.target.value})}
+                />
               </div>
-
-              <div className="mt-4 p-4 bg-muted rounded-lg">
-                <div className="text-center">
-                  <div className="text-sm font-medium text-muted-foreground">Converted Amount:</div>
-                  <div className="text-2xl font-bold">
-                    {convertedAmount !== null
-                      ? `${convertedAmount.toLocaleString()} SYP`
-                      : "—"
-                    }
-                  </div>
-                </div>
+              <div>
+                <Label htmlFor="rate">Rate to SYP</Label>
+                <Input 
+                  id="rate"
+                  type="number" 
+                  placeholder="5000" 
+                  value={newCurrency.rate_to_syp || ""}
+                  onChange={(e) => setNewCurrency({...newCurrency, rate_to_syp: Number(e.target.value)})}
+                />
+              </div>
+              <div className="flex items-end">
+                <Button onClick={addNewCurrency}>Add Currency</Button>
               </div>
             </div>
           </CardContent>
         </Card>
-      </div>
-
-      {/* Dialog for adding/editing exchange rates */}
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{editingRate ? 'Edit Exchange Rate' : 'Add New Exchange Rate'}</DialogTitle>
-          </DialogHeader>
-          
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-              <FormField
-                control={form.control}
-                name="currency_code"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Currency Code</FormLabel>
-                    <FormControl>
-                      <Input 
-                        placeholder="USD" 
-                        {...field} 
-                        disabled={!!editingRate}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              
-              <FormField
-                control={form.control}
-                name="currency_name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Currency Name</FormLabel>
-                    <FormControl>
-                      <Input placeholder="US Dollar" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              
-              <FormField
-                control={form.control}
-                name="rate_to_syp"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Rate (1 unit to SYP)</FormLabel>
-                    <FormControl>
-                      <Input type="number" placeholder="3000" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              
-              <DialogFooter>
-                <Button type="button" variant="outline" onClick={handleDialogClose}>Cancel</Button>
-                <Button type="submit">{editingRate ? 'Update' : 'Add'}</Button>
-              </DialogFooter>
-            </form>
-          </Form>
-        </DialogContent>
-      </Dialog>
+      )}
     </div>
   );
 };
