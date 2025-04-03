@@ -3,6 +3,7 @@ import React, { createContext, useContext, useState, ReactNode, useEffect } from
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Session, User } from "@supabase/supabase-js";
+import { Database } from "@/integrations/supabase/types";
 
 // Define our Employee type
 export type Employee = {
@@ -101,39 +102,63 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     try {
       setLoading(true);
       
-      // Check if the email exists in the employees table
-      const { data: employeeData, error: employeeError } = await supabase
-        .from('employees')
-        .select('*')
-        .eq('email', email)
-        .single();
+      // Try to sign in with Supabase Auth
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
 
-      if (employeeError) {
-        toast.error("Invalid email or password");
-        return false;
+      if (authError) {
+        console.error('Authentication error:', authError);
+        
+        // Let's check if this email exists in the employees table
+        const { data: empData, error: empError } = await supabase
+          .from('employees')
+          .select('*')
+          .eq('email', email)
+          .single();
+        
+        if (empError || !empData) {
+          toast.error("Invalid email or password");
+          return false;
+        }
+        
+        // If email exists but auth failed, the employee exists but might not be registered in auth system
+        // Let's try a development-only fallback to simulate authentication
+        
+        // WARNING: This is for development only and should be removed in production!
+        // In production, you would properly register all employees in the auth system
+        if (empData && empData.password === password) {
+          console.log("Using dev fallback auth...");
+          setEmployee({
+            id: empData.id,
+            email: empData.email,
+            name: empData.name,
+            role: empData.role,
+            permissions: empData.permissions,
+            branch_id: empData.branch_id,
+            employee_id: empData.employee_id
+          });
+          setIsAuthenticated(true);
+          localStorage.setItem("okash-employee", JSON.stringify(empData));
+          
+          toast.success("Login successful");
+          return true;
+        } else {
+          toast.error("Invalid email or password");
+          return false;
+        }
       }
 
-      // For now, we'll use simple password check since we don't have Supabase Auth set up yet
-      // In a real app, you would use Supabase Auth directly
-      if (employeeData && employeeData.password === password) {
-        setEmployee({
-          id: employeeData.id,
-          email: employeeData.email,
-          name: employeeData.name,
-          role: employeeData.role,
-          permissions: employeeData.permissions,
-          branch_id: employeeData.branch_id,
-          employee_id: employeeData.employee_id
-        });
-        setIsAuthenticated(true);
-        localStorage.setItem("okash-employee", JSON.stringify(employeeData));
-        
+      // If Supabase auth succeeded
+      if (authData.session) {
         toast.success("Login successful");
         return true;
       } else {
-        toast.error("Invalid email or password");
+        toast.error("Login failed");
         return false;
       }
+      
     } catch (error) {
       console.error("Login failed", error);
       toast.error("Login failed. Please try again.");
@@ -144,12 +169,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   // Logout function
-  const logout = () => {
-    setEmployee(null);
-    setIsAuthenticated(false);
-    setSession(null);
-    localStorage.removeItem("okash-employee");
-    toast.success("Logged out successfully");
+  const logout = async () => {
+    try {
+      await supabase.auth.signOut();
+      setEmployee(null);
+      setIsAuthenticated(false);
+      setSession(null);
+      localStorage.removeItem("okash-employee");
+      toast.success("Logged out successfully");
+    } catch (error) {
+      console.error("Logout error:", error);
+      toast.error("Failed to log out");
+    }
   };
 
   return (

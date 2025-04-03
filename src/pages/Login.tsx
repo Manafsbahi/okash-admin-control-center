@@ -1,5 +1,5 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,9 +12,17 @@ import { toast } from "sonner";
 const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const { login, loading } = useAuth();
+  const [loginAttempts, setLoginAttempts] = useState(0);
+  const { login, loading, isAuthenticated } = useAuth();
   const { t, isRTL } = useLanguage();
   const navigate = useNavigate();
+
+  // If user is already authenticated, redirect to dashboard
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate("/dashboard");
+    }
+  }, [isAuthenticated, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -24,9 +32,16 @@ const Login = () => {
       return;
     }
     
+    // Track login attempts for debugging
+    setLoginAttempts(prev => prev + 1);
+    console.log(`Login attempt ${loginAttempts + 1} for email: ${email}`);
+    
     const success = await login(email, password);
     if (success) {
       navigate("/dashboard");
+    } else {
+      // Log more information for debugging
+      console.log(`Login failed for email: ${email}`);
     }
   };
 
@@ -83,6 +98,11 @@ const Login = () => {
         
         <div className="text-center mt-4 text-sm text-gray-500">
           <p>Demo credentials: admin@okash.com / password</p>
+          {loginAttempts > 0 && (
+            <p className="mt-2 text-xs text-red-500">
+              Login attempts: {loginAttempts}
+            </p>
+          )}
         </div>
       </div>
     </div>
