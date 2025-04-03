@@ -99,16 +99,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (data) {
         console.log("Fetched employee data:", data);
         
-        // Normalize the permissions object
+        // Normalize the permissions object - FIX: Ensure data.permissions is an object before spreading
+        const basePermissions = data.permissions || {};
+        const adminPermissions = data.role === 'admin' ? {
+          can_create_customer: true,
+          can_update_customer: true,
+          can_freeze_account: true,
+          can_view_all_transactions: true
+        } : {};
+        
         const normalizedPermissions = {
-          ...(data.permissions || {}),
-          // Make sure admin users always have basic permissions
-          ...(data.role === 'admin' ? {
-            can_create_customer: true,
-            can_update_customer: true,
-            can_freeze_account: true,
-            can_view_all_transactions: true
-          } : {})
+          ...basePermissions,
+          ...adminPermissions
         };
         
         setEmployee({
@@ -162,19 +164,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         if (empData && empData.password === password) {
           console.log("Using dev fallback auth...");
           
-          // Normalize the permissions object for admin users
+          // Normalize the permissions object for admin users - FIX: Ensure empData.permissions is an object before spreading
+          const basePermissions = empData.permissions || {};
+          const adminPermissions = empData.role === 'admin' ? {
+            can_create_customer: true,
+            can_update_customer: true,
+            can_freeze_account: true,
+            can_view_all_transactions: true
+          } : {};
+          
           const normalizedPermissions = {
-            ...(empData.permissions || {}),
-            // Make sure admin users always have basic permissions
-            ...(empData.role === 'admin' ? {
-              can_create_customer: true,
-              can_update_customer: true,
-              can_freeze_account: true,
-              can_view_all_transactions: true
-            } : {})
+            ...basePermissions,
+            ...adminPermissions
           };
           
-          setEmployee({
+          const employeeData: Employee = {
             id: empData.id,
             email: empData.email,
             name: empData.name,
@@ -182,12 +186,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             permissions: normalizedPermissions,
             branch_id: empData.branch_id,
             employee_id: empData.employee_id
-          });
+          };
+          
+          setEmployee(employeeData);
           setIsAuthenticated(true);
-          localStorage.setItem("okash-employee", JSON.stringify({
-            ...empData,
-            permissions: normalizedPermissions
-          }));
+          localStorage.setItem("okash-employee", JSON.stringify(employeeData));
           
           toast.success("Login successful");
           return true;
