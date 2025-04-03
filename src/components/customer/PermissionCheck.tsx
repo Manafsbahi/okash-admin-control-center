@@ -2,6 +2,8 @@
 import React from "react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
+import { AlertCircle } from "lucide-react";
 
 interface PermissionCheckProps {
   permissionError: string | null;
@@ -10,7 +12,7 @@ interface PermissionCheckProps {
 
 const PermissionCheck: React.FC<PermissionCheckProps> = ({ 
   permissionError, 
-  returnPath = '/customers' 
+  returnPath = '/dashboard' 
 }) => {
   const navigate = useNavigate();
 
@@ -18,9 +20,14 @@ const PermissionCheck: React.FC<PermissionCheckProps> = ({
 
   return (
     <div className="flex flex-col items-center justify-center p-8 text-center">
-      <div className="text-red-500 mb-4">{permissionError}</div>
-      <Button variant="outline" onClick={() => navigate(returnPath)}>
-        Return to {returnPath === '/customers' ? 'Customers' : 'Dashboard'}
+      <Alert variant="destructive" className="max-w-md mb-4">
+        <AlertCircle className="h-4 w-4" />
+        <AlertTitle>Permission Denied</AlertTitle>
+        <AlertDescription>{permissionError}</AlertDescription>
+      </Alert>
+      
+      <Button variant="default" onClick={() => navigate(returnPath)}>
+        Return to {returnPath === '/customers' ? 'Customers' : returnPath === '/dashboard' ? 'Dashboard' : 'Previous Page'}
       </Button>
     </div>
   );

@@ -3,6 +3,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Navigate, useLocation } from "react-router-dom";
 import { ReactNode } from "react";
 import { EmployeeRole, canViewDashboard } from "@/types/roles";
+import PermissionCheck from "@/components/customer/PermissionCheck";
 
 interface ProtectedRouteProps {
   children: ReactNode;
@@ -28,7 +29,8 @@ const ProtectedRoute = ({ children, requiredPermission = canViewDashboard }: Pro
 
   // Check if the user has the required permission
   if (employee && requiredPermission && !requiredPermission(employee.role as EmployeeRole)) {
-    return <Navigate to="/dashboard" state={{ permissionError: "You don't have permission to access this page." }} replace />;
+    const permissionError = `You don't have permission to access this page. Your role (${employee.role}) doesn't have the required permissions.`;
+    return <PermissionCheck permissionError={permissionError} returnPath="/dashboard" />;
   }
 
   return <>{children}</>;
