@@ -9,7 +9,7 @@ import {
   Users,
   Repeat,
   MessageSquareText,
-  CreditCard,
+  CreditCard as CreditCardIcon, 
   BarChart3,
   Settings,
   LogOut,
@@ -50,7 +50,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
     {
       label: t("app.cards"),
       path: "/cards",
-      icon: CreditCard,
+      icon: CreditCardIcon,
     },
     {
       label: t("app.exchange"),
@@ -125,8 +125,8 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
                 <div className="px-4 py-3">
                   <p className="text-sm font-medium text-white">{employee.name}</p>
                   <p className="text-xs text-gray-300">{employee.role}</p>
-                  {employee.branch && (
-                    <p className="text-xs text-gray-300">{employee.branch}</p>
+                  {employee.branch_id && (
+                    <p className="text-xs text-gray-300">Branch ID: {employee.branch_id}</p>
                   )}
                 </div>
               )}
