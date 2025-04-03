@@ -15,6 +15,7 @@ import {
   LogOut,
   Globe
 } from "lucide-react";
+import { EmployeeRole, canManageCustomers, canManageTransactions, canManageAds, canManageCards, canManageExchange, canAccessAdmin } from "@/types/roles";
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -25,44 +26,53 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   const { employee, logout } = useAuth();
   const location = useLocation();
 
-  // Navigation items with their paths and icons
-  const navigationItems = [
+  // Define navigation items with permission checks
+  const getNavigationItems = () => [
     {
       label: t("app.dashboard"),
       path: "/dashboard",
       icon: LayoutDashboard,
+      permitted: true, // Everyone can access dashboard
     },
     {
       label: t("app.customers"),
       path: "/customers",
       icon: Users,
+      permitted: employee ? canManageCustomers(employee.role as EmployeeRole) : false,
     },
     {
       label: t("app.transactions"),
       path: "/transactions",
       icon: Repeat,
+      permitted: employee ? canManageTransactions(employee.role as EmployeeRole) : false,
     },
     {
       label: t("app.ads"),
       path: "/ads",
       icon: MessageSquareText,
+      permitted: employee ? canManageAds(employee.role as EmployeeRole) : false,
     },
     {
       label: t("app.cards"),
       path: "/cards",
       icon: CreditCardIcon,
+      permitted: employee ? canManageCards(employee.role as EmployeeRole) : false,
     },
     {
       label: t("app.exchange"),
       path: "/exchange",
       icon: BarChart3,
+      permitted: employee ? canManageExchange(employee.role as EmployeeRole) : false,
     },
     {
       label: t("app.admin"),
       path: "/admin",
       icon: Settings,
+      permitted: employee ? canAccessAdmin(employee.role as EmployeeRole) : false,
     },
   ];
+
+  const navigationItems = getNavigationItems().filter(item => item.permitted);
 
   const toggleLanguage = () => {
     setLanguage(language === "ar" ? "en" : "ar");
