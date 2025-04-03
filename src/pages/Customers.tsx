@@ -1,62 +1,47 @@
 
-import React from "react";
+import React, { useState } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Search, UserPlus } from "lucide-react";
-
-// Mock customer data
-const mockCustomers = [
-  {
-    id: "1200000001",
-    name: "Ahmad Mohammed",
-    type: "Personal",
-    balance: 1500000,
-    status: "Active",
-    createdAt: "2023-01-15",
-  },
-  {
-    id: "1200000002",
-    name: "Sara Ali",
-    type: "Personal",
-    balance: 750000,
-    status: "Active",
-    createdAt: "2023-02-20",
-  },
-  {
-    id: "1300000001",
-    name: "Al-Noor Trading Company",
-    type: "Business",
-    balance: 5200000,
-    status: "Active",
-    createdAt: "2023-03-05",
-  },
-  {
-    id: "1200000003",
-    name: "Layla Khoury",
-    type: "Personal",
-    balance: 320000,
-    status: "Frozen",
-    createdAt: "2023-04-10",
-  },
-  {
-    id: "1300000002",
-    name: "Damascus Textiles Ltd.",
-    type: "Business",
-    balance: 8700000,
-    status: "Active",
-    createdAt: "2023-05-15",
-  },
-];
+import { supabase } from "@/integrations/supabase/client";
+import { useQuery } from "@tanstack/react-query";
+import { 
+  Table, 
+  TableHeader, 
+  TableBody, 
+  TableHead, 
+  TableRow, 
+  TableCell 
+} from "@/components/ui/table";
 
 const Customers = () => {
   const { t, isRTL } = useLanguage();
-  const [searchQuery, setSearchQuery] = React.useState("");
+  const [searchQuery, setSearchQuery] = useState("");
 
-  const filteredCustomers = mockCustomers.filter((customer) =>
+  const fetchCustomers = async () => {
+    const { data, error } = await supabase
+      .from('customers')
+      .select('id, name, account_type, balance, status, created_at, account_number');
+
+    if (error) {
+      console.error("Error fetching customers:", error);
+      throw error;
+    }
+
+    return data || [];
+  };
+
+  const { data: customers = [], isLoading, error } = useQuery({
+    queryKey: ['customers'],
+    queryFn: fetchCustomers
+  });
+
+  // Filter customers based on search query
+  const filteredCustomers = customers.filter(customer =>
     customer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    customer.id.includes(searchQuery)
+    customer.account_number.includes(searchQuery)
   );
 
   return (
@@ -89,48 +74,62 @@ const Customers = () => {
           <CardTitle>Customer List</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b">
-                  <th className="text-left py-3 px-4">ID</th>
-                  <th className="text-left py-3 px-4">Name</th>
-                  <th className="text-left py-3 px-4">Type</th>
-                  <th className="text-right py-3 px-4">Balance (SYP)</th>
-                  <th className="text-left py-3 px-4">Status</th>
-                  <th className="text-left py-3 px-4">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredCustomers.map((customer) => (
-                  <tr key={customer.id} className="border-b hover:bg-muted/50">
-                    <td className="py-4 px-4">{customer.id}</td>
-                    <td className="py-4 px-4">{customer.name}</td>
-                    <td className="py-4 px-4">{customer.type}</td>
-                    <td className="py-4 px-4 text-right">
-                      {customer.balance.toLocaleString()}
-                    </td>
-                    <td className="py-4 px-4">
-                      <span
-                        className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${
-                          customer.status === "Active"
-                            ? "bg-green-100 text-green-800"
-                            : "bg-red-100 text-red-800"
-                        }`}
-                      >
-                        {customer.status}
-                      </span>
-                    </td>
-                    <td className="py-4 px-4">
-                      <Button variant="outline" size="sm">
-                        View Details
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          {isLoading ? (
+            <div className="text-center py-8">Loading customers...</div>
+          ) : error ? (
+            <div className="text-center py-8 text-red-500">
+              Error loading customers. Please try again later.
+            </div>
+          ) : filteredCustomers.length > 0 ? (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>ID</TableHead>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Type</TableHead>
+                    <TableHead className="text-right">Balance (SYP)</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredCustomers.map((customer) => (
+                    <TableRow key={customer.id} className="hover:bg-muted/50">
+                      <TableCell>{customer.account_number}</TableCell>
+                      <TableCell>{customer.name}</TableCell>
+                      <TableCell>{customer.account_type}</TableCell>
+                      <TableCell className="text-right">
+                        {customer.balance.toLocaleString()}
+                      </TableCell>
+                      <TableCell>
+                        <span
+                          className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${
+                            customer.status === "active"
+                              ? "bg-green-100 text-green-800"
+                              : "bg-red-100 text-red-800"
+                          }`}
+                        >
+                          {customer.status}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <Button variant="outline" size="sm">
+                          View Details
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          ) : (
+            <div className="text-center py-8 text-gray-500">
+              {searchQuery
+                ? t("app.no.customers.found")
+                : t("app.no.customers")}
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
