@@ -29,8 +29,8 @@ const Transactions = () => {
         created_at, 
         transaction_type, 
         status,
-        source_account_id (id, name),
-        destination_account_id (id, name)
+        source_account_id,
+        destination_account_id
       `)
       .order('created_at', { ascending: false });
 
@@ -39,7 +39,45 @@ const Transactions = () => {
       throw error;
     }
 
-    return data || [];
+    // Fetch customer names separately since we have relationship issues
+    const transactionsWithCustomers = await Promise.all(
+      (data || []).map(async (transaction) => {
+        let sourceName = "External";
+        let destinationName = "External";
+        
+        if (transaction.source_account_id) {
+          const { data: sourceCustomer } = await supabase
+            .from('customers')
+            .select('name')
+            .eq('id', transaction.source_account_id)
+            .single();
+            
+          if (sourceCustomer) {
+            sourceName = sourceCustomer.name;
+          }
+        }
+        
+        if (transaction.destination_account_id) {
+          const { data: destCustomer } = await supabase
+            .from('customers')
+            .select('name')
+            .eq('id', transaction.destination_account_id)
+            .single();
+            
+          if (destCustomer) {
+            destinationName = destCustomer.name;
+          }
+        }
+        
+        return {
+          ...transaction,
+          source_name: sourceName,
+          destination_name: destinationName
+        };
+      })
+    );
+
+    return transactionsWithCustomers || [];
   };
 
   const { data: transactions = [], isLoading, error } = useQuery({
@@ -49,15 +87,13 @@ const Transactions = () => {
 
   // Filter transactions based on search query
   const filteredTransactions = transactions.filter(transaction => {
-    const sourceAccountName = transaction.source_account_id?.name || "";
-    const destinationAccountName = transaction.destination_account_id?.name || "";
     const searchLower = searchQuery.toLowerCase();
     
     return (
       transaction.transaction_type.toLowerCase().includes(searchLower) ||
       String(transaction.amount).includes(searchQuery) ||
-      sourceAccountName.toLowerCase().includes(searchLower) ||
-      destinationAccountName.toLowerCase().includes(searchLower)
+      transaction.source_name.toLowerCase().includes(searchLower) ||
+      transaction.destination_name.toLowerCase().includes(searchLower)
     );
   });
 
@@ -116,10 +152,10 @@ const Transactions = () => {
                     <TableCell>{formatDate(transaction.created_at)}</TableCell>
                     <TableCell>{transaction.transaction_type}</TableCell>
                     <TableCell>
-                      {transaction.source_account_id?.name || "External"}
+                      {transaction.source_name}
                     </TableCell>
                     <TableCell>
-                      {transaction.destination_account_id?.name || "External"}
+                      {transaction.destination_name}
                     </TableCell>
                     <TableCell className="text-right">
                       {transaction.amount?.toLocaleString() || 0} SYP

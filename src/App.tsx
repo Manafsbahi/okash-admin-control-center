@@ -14,6 +14,11 @@ import DashboardLayout from "@/components/DashboardLayout";
 import Login from "@/pages/Login";
 import Dashboard from "@/pages/Dashboard";
 import Customers from "@/pages/Customers";
+import CustomerDetails from "@/pages/CustomerDetails";
+import CustomerDeposit from "@/pages/CustomerDeposit";
+import CustomerWithdraw from "@/pages/CustomerWithdraw";
+import CustomerTransfer from "@/pages/CustomerTransfer";
+import NewCustomer from "@/pages/NewCustomer";
 import Transactions from "@/pages/Transactions";
 import Ads from "@/pages/Ads";
 import Cards from "@/pages/Cards";
@@ -47,10 +52,51 @@ const App = () => (
                 </ProtectedRoute>
               } />
               
+              {/* Customer routes */}
               <Route path="/customers" element={
                 <ProtectedRoute>
                   <DashboardLayout>
                     <Customers />
+                  </DashboardLayout>
+                </ProtectedRoute>
+              } />
+              
+              <Route path="/customers/new" element={
+                <ProtectedRoute>
+                  <DashboardLayout>
+                    <NewCustomer />
+                  </DashboardLayout>
+                </ProtectedRoute>
+              } />
+              
+              <Route path="/customers/:id" element={
+                <ProtectedRoute>
+                  <DashboardLayout>
+                    <CustomerDetails />
+                  </DashboardLayout>
+                </ProtectedRoute>
+              } />
+              
+              <Route path="/customers/:id/deposit" element={
+                <ProtectedRoute>
+                  <DashboardLayout>
+                    <CustomerDeposit />
+                  </DashboardLayout>
+                </ProtectedRoute>
+              } />
+              
+              <Route path="/customers/:id/withdraw" element={
+                <ProtectedRoute>
+                  <DashboardLayout>
+                    <CustomerWithdraw />
+                  </DashboardLayout>
+                </ProtectedRoute>
+              } />
+              
+              <Route path="/customers/:id/transfer" element={
+                <ProtectedRoute>
+                  <DashboardLayout>
+                    <CustomerTransfer />
                   </DashboardLayout>
                 </ProtectedRoute>
               } />

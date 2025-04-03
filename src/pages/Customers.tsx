@@ -4,10 +4,13 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { Search, UserPlus } from "lucide-react";
+import { Search, UserPlus, Eye, ArrowUpDown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
-import { 
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
+import {
   Table, 
   TableHeader, 
   TableBody, 
@@ -19,6 +22,10 @@ import {
 const Customers = () => {
   const { t, isRTL } = useLanguage();
   const [searchQuery, setSearchQuery] = useState("");
+  const [sortBy, setSortBy] = useState<string>("name");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
+  const navigate = useNavigate();
+  const { employee } = useAuth();
 
   const fetchCustomers = async () => {
     const { data, error } = await supabase
@@ -44,12 +51,49 @@ const Customers = () => {
     customer.account_number.includes(searchQuery)
   );
 
+  // Sort customers
+  const sortedCustomers = [...filteredCustomers].sort((a, b) => {
+    let comparison = 0;
+    
+    if (sortBy === 'name') {
+      comparison = a.name.localeCompare(b.name);
+    } else if (sortBy === 'balance') {
+      comparison = a.balance - b.balance;
+    } else if (sortBy === 'account_number') {
+      comparison = a.account_number.localeCompare(b.account_number);
+    }
+    
+    return sortDirection === 'asc' ? comparison : -comparison;
+  });
+
+  // Handle sorting
+  const handleSort = (column: string) => {
+    if (sortBy === column) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortBy(column);
+      setSortDirection('asc');
+    }
+  };
+
+  const handleNewCustomer = () => {
+    // Check if employee has permission to create customers
+    if (employee?.role === 'admin' || employee?.permissions?.can_create_customer) {
+      navigate('/customers/new');
+    } else {
+      toast.error("You don't have permission to create new customers");
+    }
+  };
+
   return (
     <div>
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
         <h1 className="text-2xl font-bold">{t("app.customers")}</h1>
         
-        <Button className="bg-okash-accent hover:bg-okash-secondary">
+        <Button 
+          className="bg-okash-accent hover:bg-okash-secondary"
+          onClick={handleNewCustomer}
+        >
           <UserPlus className={`${isRTL ? 'ml-2' : 'mr-2'} h-4 w-4`} />
           New Customer
         </Button>
@@ -80,25 +124,49 @@ const Customers = () => {
             <div className="text-center py-8 text-red-500">
               Error loading customers. Please try again later.
             </div>
-          ) : filteredCustomers.length > 0 ? (
+          ) : sortedCustomers.length > 0 ? (
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>ID</TableHead>
-                    <TableHead>Name</TableHead>
+                    <TableHead 
+                      className="cursor-pointer"
+                      onClick={() => handleSort('account_number')}
+                    >
+                      Account Number
+                      {sortBy === 'account_number' && (
+                        <ArrowUpDown className="ml-2 h-4 w-4 inline" />
+                      )}
+                    </TableHead>
+                    <TableHead 
+                      className="cursor-pointer"
+                      onClick={() => handleSort('name')}
+                    >
+                      Name
+                      {sortBy === 'name' && (
+                        <ArrowUpDown className="ml-2 h-4 w-4 inline" />
+                      )}
+                    </TableHead>
                     <TableHead>Type</TableHead>
-                    <TableHead className="text-right">Balance (SYP)</TableHead>
+                    <TableHead 
+                      className="text-right cursor-pointer"
+                      onClick={() => handleSort('balance')}
+                    >
+                      Balance (SYP)
+                      {sortBy === 'balance' && (
+                        <ArrowUpDown className="ml-2 h-4 w-4 inline" />
+                      )}
+                    </TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredCustomers.map((customer) => (
+                  {sortedCustomers.map((customer) => (
                     <TableRow key={customer.id} className="hover:bg-muted/50">
                       <TableCell>{customer.account_number}</TableCell>
                       <TableCell>{customer.name}</TableCell>
-                      <TableCell>{customer.account_type}</TableCell>
+                      <TableCell className="capitalize">{customer.account_type}</TableCell>
                       <TableCell className="text-right">
                         {customer.balance.toLocaleString()}
                       </TableCell>
@@ -107,6 +175,8 @@ const Customers = () => {
                           className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${
                             customer.status === "active"
                               ? "bg-green-100 text-green-800"
+                              : customer.status === "frozen"
+                              ? "bg-blue-100 text-blue-800" 
                               : "bg-red-100 text-red-800"
                           }`}
                         >
@@ -114,8 +184,12 @@ const Customers = () => {
                         </span>
                       </TableCell>
                       <TableCell>
-                        <Button variant="outline" size="sm">
-                          View Details
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => navigate(`/customers/${customer.id}`)}
+                        >
+                          <Eye className="mr-1 h-4 w-4" /> View
                         </Button>
                       </TableCell>
                     </TableRow>
