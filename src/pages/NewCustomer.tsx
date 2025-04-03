@@ -86,7 +86,17 @@ const NewCustomer = () => {
       const accountNumber = generateAccountNumber("personal");
       
       const { error } = await supabase.from('customers').insert({
-        ...values,
+        name: values.name,
+        phone: values.phone,
+        password: values.password,
+        email: values.email || null,
+        mother_name: values.mother_name || null,
+        birthdate: values.birthdate || null,
+        gender: values.gender || null,
+        nationality: values.nationality || null,
+        id_type: values.id_type || null,
+        id_number: values.id_number || null,
+        address: values.address || null,
         account_number: accountNumber,
         account_type: "personal",
         status: 'active',
@@ -109,7 +119,20 @@ const NewCustomer = () => {
       const accountNumber = generateAccountNumber("business");
       
       const { error } = await supabase.from('customers').insert({
-        ...values,
+        name: values.name,
+        phone: values.phone,
+        password: values.password,
+        email: values.email || null,
+        mother_name: values.mother_name || null,
+        birthdate: values.birthdate || null,
+        gender: values.gender || null,
+        nationality: values.nationality || null,
+        id_type: values.id_type || null,
+        id_number: values.id_number || null,
+        address: values.address || null,
+        business_name: values.business_name,
+        business_registration: values.business_registration,
+        business_address: values.business_address,
         account_number: accountNumber,
         account_type: "business",
         status: 'active',
