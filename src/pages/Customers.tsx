@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -36,7 +35,7 @@ const Customers = () => {
   const fetchCustomers = async () => {
     console.log("Fetching customers...");
     try {
-      // Ensure we're using the public schema
+      // Try with api schema first
       const { data, error } = await supabase
         .from('customers')
         .select('id, name, account_type, balance, status, created_at, account_number');
@@ -68,13 +67,11 @@ const Customers = () => {
     gcTime: 300000, // 5 minutes
   });
 
-  // Filter customers based on search query
   const filteredCustomers = customers.filter(customer =>
     customer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     customer.account_number.includes(searchQuery)
   );
 
-  // Sort customers
   const sortedCustomers = [...filteredCustomers].sort((a, b) => {
     let comparison = 0;
     
@@ -89,7 +86,6 @@ const Customers = () => {
     return sortDirection === 'asc' ? comparison : -comparison;
   });
 
-  // Handle sorting
   const handleSort = (column: string) => {
     if (sortBy === column) {
       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
@@ -100,7 +96,6 @@ const Customers = () => {
   };
 
   const handleNewCustomer = () => {
-    // Check if employee has permission to create customers
     const { allowed, error } = checkPermission('create');
     
     if (allowed) {
@@ -112,7 +107,6 @@ const Customers = () => {
     }
   };
 
-  // For debugging - log employee data
   React.useEffect(() => {
     console.log("Current employee data:", employee);
     if (employee) {
@@ -121,7 +115,6 @@ const Customers = () => {
     }
   }, [employee]);
 
-  // Reset permission error when component unmounts or when employee changes
   React.useEffect(() => {
     setPermissionError(null);
   }, [employee]);

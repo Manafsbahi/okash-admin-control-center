@@ -20,7 +20,7 @@ export const supabase = createClient<Database>(
       storage: localStorage
     },
     db: {
-      schema: 'public'
+      schema: 'api'
     }
   }
 );
